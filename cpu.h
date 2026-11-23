@@ -27,7 +27,6 @@ typedef struct cpu
 }cpu;
 
 
-
-
+void emluateCycle(cpu *cpu);
 
 #endif

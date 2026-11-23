@@ -92,85 +92,6 @@ static uint16_t addrIndirectY(cpu *cpu) // (zp),Y
     return ((((uint16_t)highByte << 8) | lowByte) + cpu->IY) & MEMORY_MASK;
 }
 
-/*
-Function emulate one cycle 
-input: pointer to cpu 
-output: None
-*/
-void emluateCycle(cpu *cpu)
-{
-    uint8_t opcode = fetch8(cpu);
-
-
-    switch (opcode & 0xF0)
-    {
-    case 0x10:
-        switch (opcode & 0x0F)
-        {
-            
-        }
-        break;
-    
-    case 0x20:
-        switch (opcode & 0x0F)
-        {
-            case 0x05:
-                and(cpu,cpu->memory.RAM[val]);
-                cpu->pc += 2;
-            case 0x09:
-                and(cpu,val);
-                cpu->pc += 2;
-            
-            default:
-            break;
-        }
-        break;
-    
-    case 0x60:
-        switch (opcode & 0x0F)
-        {
-        case 0x01:
-            adc(cpu,cpu->memory.RAM[cpu->IX]);
-            break;
-
-        case 0x05:
-            adc(cpu, cpu->memory.RAM[val]);
-            break;
-
-        case 0x09:
-            adc(cpu,val);
-            break;
-
-        case 0x0D:
-            adc(cpu,val);
-            break;
-        default:
-            printf("Invalid opcode: 0x%X",opcode);
-        }
-    
-    case 0x70:
-        switch (opcode & 0x0F)
-        {
-        case 0x01:
-            adc(cpu,cpu->memory.RAM[cpu->IY]);
-            break;
-        
-        case 0x05:
-            break;
-        default:
-            break;
-        }
-    
-    break;
-    
-    
-    
-    default:
-        break;
-    }
-
-}
-
 
 /*
 Function does pull from stack
@@ -1318,4 +1239,237 @@ void tya(cpu *cpu)
     }
 
     cpu->A = res;
+}
+
+
+
+
+/*
+Function emulate one cycle 
+input: pointer to cpu 
+output: None
+*/
+void emluateCycle(cpu *cpu)
+{
+    uint8_t opcode = fetch8(cpu);
+
+    switch (opcode)
+    {
+    /* ---------------- ADC ---------------- */
+    case 0x69: adc(cpu, fetch8(cpu));              break;
+    case 0x65: adc(cpu, READ(addrZeroPage));       break;
+    case 0x75: adc(cpu, READ(addrZeroPageX));      break;
+    case 0x6D: adc(cpu, READ(addrAbsolute));       break;
+    case 0x7D: adc(cpu, READ(addrAbsoluteX));      break;
+    case 0x79: adc(cpu, READ(addrAbsoluteY));      break;
+    case 0x61: adc(cpu, READ(addrIndirectX));      break;
+    case 0x71: adc(cpu, READ(addrIndirectY));      break;
+
+    /* ---------------- AND ---------------- */
+    case 0x29: and(cpu, fetch8(cpu));              break;
+    case 0x25: and(cpu, READ(addrZeroPage));       break;
+    case 0x35: and(cpu, READ(addrZeroPageX));      break;
+    case 0x2D: and(cpu, READ(addrAbsolute));       break;
+    case 0x3D: and(cpu, READ(addrAbsoluteX));      break;
+    case 0x39: and(cpu, READ(addrAbsoluteY));      break;
+    case 0x21: and(cpu, READ(addrIndirectX));      break;
+    case 0x31: and(cpu, READ(addrIndirectY));      break;
+
+    /* ---------------- ASL ---------------- */
+    case 0x0A: cpu->A = asl(cpu, cpu->A);          break;
+    case 0x06: RMW(asl, addrZeroPage);             break;
+    case 0x16: RMW(asl, addrZeroPageX);            break;
+    case 0x0E: RMW(asl, addrAbsolute);             break;
+    case 0x1E: RMW(asl, addrAbsoluteX);            break;
+
+    /* ---------------- Branches ---------------- */
+    case 0x90: bcc(cpu, fetch8(cpu));              break;
+    case 0xB0: bcs(cpu, fetch8(cpu));              break;
+    case 0xF0: beq(cpu, fetch8(cpu));              break;
+    case 0x30: bmi(cpu, fetch8(cpu));              break;
+    case 0xD0: bne(cpu, fetch8(cpu));              break;
+    case 0x10: bpl(cpu, fetch8(cpu));              break;
+    case 0x50: bvc(cpu, fetch8(cpu));              break;
+    case 0x70: bvs(cpu, fetch8(cpu));              break;
+
+    /* ---------------- BIT ---------------- */
+    case 0x24: bit(cpu, addrZeroPage(cpu));        break;
+    case 0x2C: bit(cpu, addrAbsolute(cpu));        break;
+
+    /* ---------------- BRK ---------------- */
+    case 0x00: brk(cpu);                           break;
+
+    /* ---------------- Flag instructions ---------------- */
+    case 0x18: clc(cpu);                           break;
+    case 0xD8: cld(cpu);                           break;
+    case 0x58: cli(cpu);                           break;
+    case 0xB8: clv(cpu);                           break;
+    case 0x38: sec(cpu);                           break;
+    case 0xF8: sed(cpu);                           break;
+    case 0x78: sei(cpu);                           break;
+
+    /* ---------------- CMP ---------------- */
+    case 0xC9: cmp(cpu, fetch8(cpu));              break;
+    case 0xC5: cmp(cpu, READ(addrZeroPage));       break;
+    case 0xD5: cmp(cpu, READ(addrZeroPageX));      break;
+    case 0xCD: cmp(cpu, READ(addrAbsolute));       break;
+    case 0xDD: cmp(cpu, READ(addrAbsoluteX));      break;
+    case 0xD9: cmp(cpu, READ(addrAbsoluteY));      break;
+    case 0xC1: cmp(cpu, READ(addrIndirectX));      break;
+    case 0xD1: cmp(cpu, READ(addrIndirectY));      break;
+
+    /* ---------------- CPX / CPY ---------------- */
+    case 0xE0: cpx(cpu, fetch8(cpu));              break;
+    case 0xE4: cpx(cpu, READ(addrZeroPage));       break;
+    case 0xEC: cpx(cpu, READ(addrAbsolute));       break;
+    case 0xC0: cpy(cpu, fetch8(cpu));              break;
+    case 0xC4: cpy(cpu, READ(addrZeroPage));       break;
+    case 0xCC: cpy(cpu, READ(addrAbsolute));       break;
+
+    /* ---------------- DEC / INC ---------------- */
+    case 0xC6: dec(cpu, addrZeroPage(cpu));        break;
+    case 0xD6: dec(cpu, addrZeroPageX(cpu));       break;
+    case 0xCE: dec(cpu, addrAbsolute(cpu));        break;
+    case 0xDE: dec(cpu, addrAbsoluteX(cpu));       break;
+    case 0xE6: inc(cpu, addrZeroPage(cpu));        break;
+    case 0xF6: inc(cpu, addrZeroPageX(cpu));       break;
+    case 0xEE: inc(cpu, addrAbsolute(cpu));        break;
+    case 0xFE: inc(cpu, addrAbsoluteX(cpu));       break;
+
+    /* ---------------- DEX / DEY / INX / INY ---------------- */
+    case 0xCA: dex(cpu);                           break;
+    case 0x88: dey(cpu);                           break;
+    case 0xE8: inx(cpu);                           break;
+    case 0xC8: iny(cpu);                           break;
+
+    /* ---------------- EOR ---------------- */
+    case 0x49: eor(cpu, fetch8(cpu));              break;
+    case 0x45: eor(cpu, READ(addrZeroPage));       break;
+    case 0x55: eor(cpu, READ(addrZeroPageX));      break;
+    case 0x4D: eor(cpu, READ(addrAbsolute));       break;
+    case 0x5D: eor(cpu, READ(addrAbsoluteX));      break;
+    case 0x59: eor(cpu, READ(addrAbsoluteY));      break;
+    case 0x41: eor(cpu, READ(addrIndirectX));      break;
+    case 0x51: eor(cpu, READ(addrIndirectY));      break;
+
+    /* ---------------- JMP / JSR ---------------- */
+    case 0x4C: jmp(cpu, fetch16(cpu));             break;
+    case 0x6C: //JMP (indirect), including the real 6502 page wrap bug
+    {
+        uint16_t ptr = fetch16(cpu);
+        uint8_t lowByte = cpu->memory.RAM[ptr & MEMORY_MASK];
+        uint8_t highByte = cpu->memory.RAM[((ptr & 0xFF00) | ((ptr + 1) & 0x00FF)) & MEMORY_MASK];
+
+        jmp(cpu, ((uint16_t)highByte << 8) | lowByte);
+        break;
+    }
+    case 0x20: jsr(cpu, fetch16(cpu));             break;
+
+    /* ---------------- LDA ---------------- */
+    case 0xA9: lda(cpu, fetch8(cpu));              break;
+    case 0xA5: lda(cpu, READ(addrZeroPage));       break;
+    case 0xB5: lda(cpu, READ(addrZeroPageX));      break;
+    case 0xAD: lda(cpu, READ(addrAbsolute));       break;
+    case 0xBD: lda(cpu, READ(addrAbsoluteX));      break;
+    case 0xB9: lda(cpu, READ(addrAbsoluteY));      break;
+    case 0xA1: lda(cpu, READ(addrIndirectX));      break;
+    case 0xB1: lda(cpu, READ(addrIndirectY));      break;
+
+    /* ---------------- LDX ---------------- */
+    case 0xA2: ldx(cpu, fetch8(cpu));              break;
+    case 0xA6: ldx(cpu, READ(addrZeroPage));       break;
+    case 0xB6: ldx(cpu, READ(addrZeroPageY));      break;
+    case 0xAE: ldx(cpu, READ(addrAbsolute));       break;
+    case 0xBE: ldx(cpu, READ(addrAbsoluteY));      break;
+
+    /* ---------------- LDY ---------------- */
+    case 0xA0: ldy(cpu, fetch8(cpu));              break;
+    case 0xA4: ldy(cpu, READ(addrZeroPage));       break;
+    case 0xB4: ldy(cpu, READ(addrZeroPageX));      break;
+    case 0xAC: ldy(cpu, READ(addrAbsolute));       break;
+    case 0xBC: ldy(cpu, READ(addrAbsoluteX));      break;
+
+    /* ---------------- LSR ---------------- */
+    case 0x4A: cpu->A = lsr(cpu, cpu->A);          break;
+    case 0x46: RMW(lsr, addrZeroPage);             break;
+    case 0x56: RMW(lsr, addrZeroPageX);            break;
+    case 0x4E: RMW(lsr, addrAbsolute);             break;
+    case 0x5E: RMW(lsr, addrAbsoluteX);            break;
+
+    /* ---------------- NOP ---------------- */
+    case 0xEA: nop(cpu);                           break;
+
+    /* ---------------- ORA ---------------- */
+    case 0x09: ora(cpu, fetch8(cpu));              break;
+    case 0x05: ora(cpu, READ(addrZeroPage));       break;
+    case 0x15: ora(cpu, READ(addrZeroPageX));      break;
+    case 0x0D: ora(cpu, READ(addrAbsolute));       break;
+    case 0x1D: ora(cpu, READ(addrAbsoluteX));      break;
+    case 0x19: ora(cpu, READ(addrAbsoluteY));      break;
+    case 0x01: ora(cpu, READ(addrIndirectX));      break;
+    case 0x11: ora(cpu, READ(addrIndirectY));      break;
+
+    /* ---------------- Stack ---------------- */
+    case 0x48: pha(cpu);                           break;
+    case 0x08: php(cpu);                           break;
+    case 0x68: pla(cpu);                           break;
+    case 0x28: plp(cpu);                           break;
+
+    /* ---------------- ROL ---------------- */
+    case 0x2A: cpu->A = rol(cpu, cpu->A);          break;
+    case 0x26: RMW(rol, addrZeroPage);             break;
+    case 0x36: RMW(rol, addrZeroPageX);            break;
+    case 0x2E: RMW(rol, addrAbsolute);             break;
+    case 0x3E: RMW(rol, addrAbsoluteX);            break;
+
+    /* ---------------- ROR ---------------- */
+    case 0x6A: cpu->A = ror(cpu, cpu->A);          break;
+    case 0x66: RMW(ror, addrZeroPage);             break;
+    case 0x76: RMW(ror, addrZeroPageX);            break;
+    case 0x6E: RMW(ror, addrAbsolute);             break;
+    case 0x7E: RMW(ror, addrAbsoluteX);            break;
+
+    /* ---------------- RTI / RTS ---------------- */
+    case 0x40: rti(cpu);                           break;
+    case 0x60: rts(cpu);                           break;
+
+    /* ---------------- SBC ---------------- */
+    case 0xE9: sbc(cpu, fetch8(cpu));              break;
+    case 0xE5: sbc(cpu, READ(addrZeroPage));       break;
+    case 0xF5: sbc(cpu, READ(addrZeroPageX));      break;
+    case 0xED: sbc(cpu, READ(addrAbsolute));       break;
+    case 0xFD: sbc(cpu, READ(addrAbsoluteX));      break;
+    case 0xF9: sbc(cpu, READ(addrAbsoluteY));      break;
+    case 0xE1: sbc(cpu, READ(addrIndirectX));      break;
+    case 0xF1: sbc(cpu, READ(addrIndirectY));      break;
+
+    /* ---------------- STA ---------------- */
+    case 0x85: sta(cpu, addrZeroPage(cpu));        break;
+    case 0x95: sta(cpu, addrZeroPageX(cpu));       break;
+    case 0x8D: sta(cpu, addrAbsolute(cpu));        break;
+    case 0x9D: sta(cpu, addrAbsoluteX(cpu));       break;
+    case 0x99: sta(cpu, addrAbsoluteY(cpu));       break;
+    case 0x81: sta(cpu, addrIndirectX(cpu));       break;
+    case 0x91: sta(cpu, addrIndirectY(cpu));       break;
+
+    /* ---------------- STX / STY ---------------- */
+    case 0x86: stx(cpu, addrZeroPage(cpu));        break;
+    case 0x96: stx(cpu, addrZeroPageY(cpu));       break;
+    case 0x8E: stx(cpu, addrAbsolute(cpu));        break;
+    case 0x84: sty(cpu, addrZeroPage(cpu));        break;
+    case 0x94: sty(cpu, addrZeroPageX(cpu));       break;
+    case 0x8C: sty(cpu, addrAbsolute(cpu));        break;
+
+    /* ---------------- Transfers ---------------- */
+    case 0xAA: tax(cpu);                           break;
+    case 0xA8: tay(cpu);                           break;
+    case 0xBA: tsx(cpu);                           break;
+    case 0x8A: txa(cpu);                           break;
+    case 0x9A: txs(cpu);                           break;
+    case 0x98: tya(cpu);                           break;
+
+    default:
+        printf("Invalid opcode: 0x%02X at 0x%04X\n", opcode, (uint16_t)(cpu->pc - 1));
+        break;
+    }
 }
