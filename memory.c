@@ -7,12 +7,12 @@ Function initialize memory
 input: pointer to memory
 output: None
 */
-void initMemory(memory mem)
+void initMemory(memory *mem)
 {
     for (int i = 0;i<MEMORY_SIZE;i++) //Clears memory
     {
-        mem.RAM[i] = 0;
-        mem.ROM[i] = 0;
+        mem->RAM[i] = 0;
+        mem->ROM[i] = 0;
     }
 }
 
@@ -22,9 +22,9 @@ Function loads ROM file into memory
 input: Memory and path to ROM file
 output: None
 */
-void loadRom(char *path,memory mem)
+void loadRom(char *path,memory *mem)
 {
-    FILE *file = fopen(path,"r");
+    FILE *file = fopen(path,"rb");
 
     if (!file)
     {
@@ -48,9 +48,10 @@ void loadRom(char *path,memory mem)
 
     for (int i = 0;i<romSize;i++)
     {
-        mem.ROM[i] = (uint8_t)romBuffer[i]; 
+        mem->ROM[i] = (uint8_t)romBuffer[i]; 
     }
 
     free(romBuffer);
+    romBuffer = NULL;
     fclose(file);
 }

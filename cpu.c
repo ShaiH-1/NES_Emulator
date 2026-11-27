@@ -1,4 +1,5 @@
 #include "cpu.h"
+#include <stdio.h>
 
 /*
 Function initialize cpu
@@ -14,82 +15,73 @@ void initCpu(cpu *cpu)
     cpu->pc = 0;
     cpu->sp = 0xFD;
 
-    initMemory(cpu->memory);
+    initMemory(&cpu->memory);
 }
 
-/*
-Helper: reads one byte from the instruction stream (ROM) and advances pc
-input: pointer to cpu
-output: the byte
-*/
-static uint8_t fetch8(cpu *cpu)
+
+//Reads one byte from the instruction stream (ROM) and advances pc
+static uint8_t fetch8(cpu *c)
 {
-    return cpu->memory.ROM[(cpu->pc++) & MEMORY_MASK];
+    return c->memory.ROM[(c->pc++) & MEMORY_MASK];
 }
 
-/*
-reads a little endian 16 bit value from the instruction stream
-input: pointer to cpu
-output: the value
-*/
-static uint16_t fetch16(cpu *cpu)
+//Reads a little endian 16 bit value from the instruction stream
+static uint16_t fetch16(cpu *c)
 {
-    uint8_t lowByte = fetch8(cpu);
-    uint8_t highByte = fetch8(cpu);
+    uint8_t lowByte = fetch8(c);
+    uint8_t highByte = fetch8(c);
 
     return ((uint16_t)highByte << 8) | lowByte;
 }
 
-/*
-Addressing modes - each one consumes its operand bytes and returns the
-effective RAM address (already wrapped to the size of the RAM)
-*/
-static uint16_t addrZeroPage(cpu *cpu)
+
+//Addressing modes: each one reads its operand bytes and returns the RAM address
+static uint16_t addrZeroPage(cpu *c)
 {
-    return fetch8(cpu);
+    return fetch8(c);
 }
 
-static uint16_t addrZeroPageX(cpu *cpu)
+static uint16_t addrZeroPageX(cpu *c)
 {
-    return (uint8_t)(fetch8(cpu) + cpu->IX); //wraps inside the zero page
+    return (uint8_t)(fetch8(c) + c->IX);
 }
 
-static uint16_t addrZeroPageY(cpu *cpu)
+static uint16_t addrZeroPageY(cpu *c)
 {
-    return (uint8_t)(fetch8(cpu) + cpu->IY);
+    return (uint8_t)(fetch8(c) + c->IY);
 }
 
-static uint16_t addrAbsolute(cpu *cpu)
+static uint16_t addrAbsolute(cpu *c)
 {
-    return fetch16(cpu) & MEMORY_MASK;
+    return fetch16(c) & MEMORY_MASK;
 }
 
-static uint16_t addrAbsoluteX(cpu *cpu)
+static uint16_t addrAbsoluteX(cpu *c)
 {
-    return (fetch16(cpu) + cpu->IX) & MEMORY_MASK;
+    return (fetch16(c) + c->IX) & MEMORY_MASK;
 }
 
-static uint16_t addrAbsoluteY(cpu *cpu)
+static uint16_t addrAbsoluteY(cpu *c)
 {
-    return (fetch16(cpu) + cpu->IY) & MEMORY_MASK;
+    return (fetch16(c) + c->IY) & MEMORY_MASK;
 }
 
-static uint16_t addrIndirectX(cpu *cpu) // (zp,X)
+static uint16_t addrIndirectX(cpu *c) // (zp,X)
 {
-    uint8_t ptr = (uint8_t)(fetch8(cpu) + cpu->IX);
-    uint8_t lowByte = cpu->memory.RAM[ptr];
-    uint8_t highByte = cpu->memory.RAM[(uint8_t)(ptr + 1)];
+    uint8_t ptr = (uint8_t)(fetch8(c) + c->IX);
+    uint8_t lowByte = c->memory.RAM[ptr];
+    uint8_t highByte = c->memory.RAM[(uint8_t)(ptr + 1)];
 
     return (((uint16_t)highByte << 8) | lowByte) & MEMORY_MASK;
 }
 
-static uint16_t addrIndirectY(cpu *cpu) // (zp),Y
+static uint16_t addrIndirectY(cpu *c) // (zp),Y
 {
-    uint8_t ptr = fetch8(cpu);
-    uint8_t lowByte = cpu->memory.RAM[ptr];
-    uint8_t highByte = cpu->memory.RAM[(uint8_t)(ptr + 1)];
+    uint8_t ptr = fetch8(c);
+    uint8_t lowByte = c->memory.RAM[ptr];
+    uint8_t highByte = c->memory.RAM[(uint8_t)(ptr + 1)];
 
-    return ((((uint16_t)highByte << 8) | lowByte) + cpu->IY) & MEMORY_MASK;
+    return ((((uint16_t)highByte << 8) | lowByte) + c->IY) & MEMORY_MASK;
 }
 
 
@@ -124,7 +116,7 @@ output: None
 */
 void adc(cpu *cpu,uint8_t val)
 {
-    uint16_t res = cpu->A + val + (cpu->P & CF);
+    uint8_t res = cpu->A + val + (cpu->P & CF);
 
     if (res > 0xFF)
     {
@@ -231,7 +223,7 @@ void bcc(cpu *cpu,uint8_t val)
 {   
     if ((cpu->P & CF) == 0)
     {
-        cpu->pc += 2 + val;
+        cpu->pc += (uint8_t)val;
     }
 }
 
@@ -244,7 +236,7 @@ void bcs(cpu *cpu,uint8_t val)
 {
     if (cpu->P & CF)
     {
-        cpu->pc += 2 + val;
+        cpu->pc += (uint8_t)val;
     }
 }
 
@@ -257,7 +249,7 @@ void beq(cpu *cpu,uint8_t val)
 {
     if (cpu->P & ZF)
     {
-        cpu->pc += 2 + val;
+        cpu->pc += (uint8_t)val;
     }
 }
 
@@ -307,7 +299,7 @@ void bmi(cpu *cpu,uint8_t val)
 {
     if (cpu->P & NF)
     {
-        cpu->pc += 2 + val;
+        cpu->pc += (uint8_t)val;
     }
 }
 
@@ -320,7 +312,7 @@ void bne(cpu *cpu,uint8_t val)
 {
     if ((cpu->P & ZF) == 0)
     {
-        cpu->pc += 2 + val;
+        cpu->pc += (uint8_t)val;
     }
 }
 
@@ -333,7 +325,7 @@ void bpl(cpu *cpu,uint8_t val)
 {
     if ((cpu->P & NF) == 0)
     {
-        cpu->pc += 2 + val;
+        cpu->pc += (uint8_t)val;
     }
 }
 
@@ -344,7 +336,16 @@ output: None
 */
 void brk(cpu *cpu)
 {
+    pushStack(cpu, (cpu->pc >> 8) & 0xFF);
+    pushStack(cpu, cpu->pc & 0xFF);
 
+    pushStack(cpu ,cpu->P | 0x30);
+    cpu->P |= INF;
+
+    uint8_t lowByte = cpu->memory.ROM[0xFFFE];
+    uint8_t highByte = cpu->memory.ROM[0xFFFF];
+
+    cpu->pc = ((uint16_t)highByte <<8) | lowByte;
 }
 
 /*
@@ -356,7 +357,7 @@ void bvs(cpu *cpu)
 {
     if (cpu->P & VF)
     {
-        cpu->pc += 2 + cpu->memory.RAM[cpu->pc];
+        cpu->pc += (uint8_t)cpu->memory.RAM[cpu->pc];
     }
 }
 
@@ -799,7 +800,7 @@ output: None
 */
 void php(cpu *cpu)
 {
-    pushStack(cpu,cpu->P);
+    pushStack(cpu,cpu->P | 0x30);
 }
 
 /*
@@ -837,7 +838,7 @@ output: None
 */
 void plp(cpu *cpu)
 {
-    cpu->P = popStack(cpu);
+    cpu->P = (popStack(cpu) & ~0x10) | 0x20;
 }
 
 
@@ -1190,26 +1191,7 @@ output: None
 */
 void txs(cpu *cpu)
 {
-    uint8_t res = cpu->IX;
-    if (res == 0)
-    {
-        cpu->P |= ZF;
-    }
-    else
-    {
-        cpu->P &= ~ZF;
-    }
-
-    if (res & 0x80)
-    {
-        cpu->P |= NF;
-    }
-    else
-    {
-        cpu->P &= ~NF;
-    }
-
-    cpu->sp = res;
+    cpu->sp = cpu->IX; 
 }
 
 /*
@@ -1243,233 +1225,350 @@ void tya(cpu *cpu)
 
 
 
-
 /*
 Function emulate one cycle 
 input: pointer to cpu 
 output: None
 */
+
 void emluateCycle(cpu *cpu)
 {
-    uint8_t opcode = fetch8(cpu);
+    cpu->opcode = fetch8(cpu);
+
+    uint8_t opcode = cpu->opcode;
+    uint16_t addr;
 
     switch (opcode)
     {
-    /* ---------------- ADC ---------------- */
-    case 0x69: adc(cpu, fetch8(cpu));              break;
-    case 0x65: adc(cpu, READ(addrZeroPage));       break;
-    case 0x75: adc(cpu, READ(addrZeroPageX));      break;
-    case 0x6D: adc(cpu, READ(addrAbsolute));       break;
-    case 0x7D: adc(cpu, READ(addrAbsoluteX));      break;
-    case 0x79: adc(cpu, READ(addrAbsoluteY));      break;
-    case 0x61: adc(cpu, READ(addrIndirectX));      break;
-    case 0x71: adc(cpu, READ(addrIndirectY));      break;
+        // ---------------- ADC ----------------
 
-    /* ---------------- AND ---------------- */
-    case 0x29: and(cpu, fetch8(cpu));              break;
-    case 0x25: and(cpu, READ(addrZeroPage));       break;
-    case 0x35: and(cpu, READ(addrZeroPageX));      break;
-    case 0x2D: and(cpu, READ(addrAbsolute));       break;
-    case 0x3D: and(cpu, READ(addrAbsoluteX));      break;
-    case 0x39: and(cpu, READ(addrAbsoluteY));      break;
-    case 0x21: and(cpu, READ(addrIndirectX));      break;
-    case 0x31: and(cpu, READ(addrIndirectY));      break;
+        case 0x69: // Immediate
+            adc(cpu, fetch8(cpu));
+            break;
 
-    /* ---------------- ASL ---------------- */
-    case 0x0A: cpu->A = asl(cpu, cpu->A);          break;
-    case 0x06: RMW(asl, addrZeroPage);             break;
-    case 0x16: RMW(asl, addrZeroPageX);            break;
-    case 0x0E: RMW(asl, addrAbsolute);             break;
-    case 0x1E: RMW(asl, addrAbsoluteX);            break;
+        case 0x65: // Zero Page
+            addr = addrZeroPage(cpu);
+            adc(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- Branches ---------------- */
-    case 0x90: bcc(cpu, fetch8(cpu));              break;
-    case 0xB0: bcs(cpu, fetch8(cpu));              break;
-    case 0xF0: beq(cpu, fetch8(cpu));              break;
-    case 0x30: bmi(cpu, fetch8(cpu));              break;
-    case 0xD0: bne(cpu, fetch8(cpu));              break;
-    case 0x10: bpl(cpu, fetch8(cpu));              break;
-    case 0x50: bvc(cpu, fetch8(cpu));              break;
-    case 0x70: bvs(cpu, fetch8(cpu));              break;
+        case 0x75: // Zero Page,X
+            addr = addrZeroPageX(cpu);
+            adc(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- BIT ---------------- */
-    case 0x24: bit(cpu, addrZeroPage(cpu));        break;
-    case 0x2C: bit(cpu, addrAbsolute(cpu));        break;
+        case 0x6D: // Absolute
+            addr = addrAbsolute(cpu);
+            adc(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- BRK ---------------- */
-    case 0x00: brk(cpu);                           break;
+        case 0x7D: // Absolute,X
+            addr = addrAbsoluteX(cpu);
+            adc(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- Flag instructions ---------------- */
-    case 0x18: clc(cpu);                           break;
-    case 0xD8: cld(cpu);                           break;
-    case 0x58: cli(cpu);                           break;
-    case 0xB8: clv(cpu);                           break;
-    case 0x38: sec(cpu);                           break;
-    case 0xF8: sed(cpu);                           break;
-    case 0x78: sei(cpu);                           break;
+        case 0x79: // Absolute,Y
+            addr = addrAbsoluteY(cpu);
+            adc(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- CMP ---------------- */
-    case 0xC9: cmp(cpu, fetch8(cpu));              break;
-    case 0xC5: cmp(cpu, READ(addrZeroPage));       break;
-    case 0xD5: cmp(cpu, READ(addrZeroPageX));      break;
-    case 0xCD: cmp(cpu, READ(addrAbsolute));       break;
-    case 0xDD: cmp(cpu, READ(addrAbsoluteX));      break;
-    case 0xD9: cmp(cpu, READ(addrAbsoluteY));      break;
-    case 0xC1: cmp(cpu, READ(addrIndirectX));      break;
-    case 0xD1: cmp(cpu, READ(addrIndirectY));      break;
+        case 0x61: // Indirect,X
+            addr = addrIndirectX(cpu);
+            adc(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- CPX / CPY ---------------- */
-    case 0xE0: cpx(cpu, fetch8(cpu));              break;
-    case 0xE4: cpx(cpu, READ(addrZeroPage));       break;
-    case 0xEC: cpx(cpu, READ(addrAbsolute));       break;
-    case 0xC0: cpy(cpu, fetch8(cpu));              break;
-    case 0xC4: cpy(cpu, READ(addrZeroPage));       break;
-    case 0xCC: cpy(cpu, READ(addrAbsolute));       break;
+        case 0x71: // Indirect,Y
+            addr = addrIndirectY(cpu);
+            adc(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- DEC / INC ---------------- */
-    case 0xC6: dec(cpu, addrZeroPage(cpu));        break;
-    case 0xD6: dec(cpu, addrZeroPageX(cpu));       break;
-    case 0xCE: dec(cpu, addrAbsolute(cpu));        break;
-    case 0xDE: dec(cpu, addrAbsoluteX(cpu));       break;
-    case 0xE6: inc(cpu, addrZeroPage(cpu));        break;
-    case 0xF6: inc(cpu, addrZeroPageX(cpu));       break;
-    case 0xEE: inc(cpu, addrAbsolute(cpu));        break;
-    case 0xFE: inc(cpu, addrAbsoluteX(cpu));       break;
 
-    /* ---------------- DEX / DEY / INX / INY ---------------- */
-    case 0xCA: dex(cpu);                           break;
-    case 0x88: dey(cpu);                           break;
-    case 0xE8: inx(cpu);                           break;
-    case 0xC8: iny(cpu);                           break;
+        // ---------------- AND ----------------
 
-    /* ---------------- EOR ---------------- */
-    case 0x49: eor(cpu, fetch8(cpu));              break;
-    case 0x45: eor(cpu, READ(addrZeroPage));       break;
-    case 0x55: eor(cpu, READ(addrZeroPageX));      break;
-    case 0x4D: eor(cpu, READ(addrAbsolute));       break;
-    case 0x5D: eor(cpu, READ(addrAbsoluteX));      break;
-    case 0x59: eor(cpu, READ(addrAbsoluteY));      break;
-    case 0x41: eor(cpu, READ(addrIndirectX));      break;
-    case 0x51: eor(cpu, READ(addrIndirectY));      break;
+        case 0x29:
+            and(cpu, fetch8(cpu));
+            break;
 
-    /* ---------------- JMP / JSR ---------------- */
-    case 0x4C: jmp(cpu, fetch16(cpu));             break;
-    case 0x6C: //JMP (indirect), including the real 6502 page wrap bug
-    {
-        uint16_t ptr = fetch16(cpu);
-        uint8_t lowByte = cpu->memory.RAM[ptr & MEMORY_MASK];
-        uint8_t highByte = cpu->memory.RAM[((ptr & 0xFF00) | ((ptr + 1) & 0x00FF)) & MEMORY_MASK];
+        case 0x25:
+            addr = addrZeroPage(cpu);
+            and(cpu, cpu->memory.RAM[addr]);
+            break;
 
-        jmp(cpu, ((uint16_t)highByte << 8) | lowByte);
-        break;
-    }
-    case 0x20: jsr(cpu, fetch16(cpu));             break;
+        case 0x35:
+            addr = addrZeroPageX(cpu);
+            and(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- LDA ---------------- */
-    case 0xA9: lda(cpu, fetch8(cpu));              break;
-    case 0xA5: lda(cpu, READ(addrZeroPage));       break;
-    case 0xB5: lda(cpu, READ(addrZeroPageX));      break;
-    case 0xAD: lda(cpu, READ(addrAbsolute));       break;
-    case 0xBD: lda(cpu, READ(addrAbsoluteX));      break;
-    case 0xB9: lda(cpu, READ(addrAbsoluteY));      break;
-    case 0xA1: lda(cpu, READ(addrIndirectX));      break;
-    case 0xB1: lda(cpu, READ(addrIndirectY));      break;
+        case 0x2D:
+            addr = addrAbsolute(cpu);
+            and(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- LDX ---------------- */
-    case 0xA2: ldx(cpu, fetch8(cpu));              break;
-    case 0xA6: ldx(cpu, READ(addrZeroPage));       break;
-    case 0xB6: ldx(cpu, READ(addrZeroPageY));      break;
-    case 0xAE: ldx(cpu, READ(addrAbsolute));       break;
-    case 0xBE: ldx(cpu, READ(addrAbsoluteY));      break;
+        case 0x3D:
+            addr = addrAbsoluteX(cpu);
+            and(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- LDY ---------------- */
-    case 0xA0: ldy(cpu, fetch8(cpu));              break;
-    case 0xA4: ldy(cpu, READ(addrZeroPage));       break;
-    case 0xB4: ldy(cpu, READ(addrZeroPageX));      break;
-    case 0xAC: ldy(cpu, READ(addrAbsolute));       break;
-    case 0xBC: ldy(cpu, READ(addrAbsoluteX));      break;
+        case 0x39:
+            addr = addrAbsoluteY(cpu);
+            and(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- LSR ---------------- */
-    case 0x4A: cpu->A = lsr(cpu, cpu->A);          break;
-    case 0x46: RMW(lsr, addrZeroPage);             break;
-    case 0x56: RMW(lsr, addrZeroPageX);            break;
-    case 0x4E: RMW(lsr, addrAbsolute);             break;
-    case 0x5E: RMW(lsr, addrAbsoluteX);            break;
+        case 0x21:
+            addr = addrIndirectX(cpu);
+            and(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- NOP ---------------- */
-    case 0xEA: nop(cpu);                           break;
+        case 0x31:
+            addr = addrIndirectY(cpu);
+            and(cpu, cpu->memory.RAM[addr]);
+            break;
 
-    /* ---------------- ORA ---------------- */
-    case 0x09: ora(cpu, fetch8(cpu));              break;
-    case 0x05: ora(cpu, READ(addrZeroPage));       break;
-    case 0x15: ora(cpu, READ(addrZeroPageX));      break;
-    case 0x0D: ora(cpu, READ(addrAbsolute));       break;
-    case 0x1D: ora(cpu, READ(addrAbsoluteX));      break;
-    case 0x19: ora(cpu, READ(addrAbsoluteY));      break;
-    case 0x01: ora(cpu, READ(addrIndirectX));      break;
-    case 0x11: ora(cpu, READ(addrIndirectY));      break;
 
-    /* ---------------- Stack ---------------- */
-    case 0x48: pha(cpu);                           break;
-    case 0x08: php(cpu);                           break;
-    case 0x68: pla(cpu);                           break;
-    case 0x28: plp(cpu);                           break;
+        // ---------------- LDA ----------------
 
-    /* ---------------- ROL ---------------- */
-    case 0x2A: cpu->A = rol(cpu, cpu->A);          break;
-    case 0x26: RMW(rol, addrZeroPage);             break;
-    case 0x36: RMW(rol, addrZeroPageX);            break;
-    case 0x2E: RMW(rol, addrAbsolute);             break;
-    case 0x3E: RMW(rol, addrAbsoluteX);            break;
+        case 0xA9: // Immediate
+            cpu->A = fetch8(cpu);
 
-    /* ---------------- ROR ---------------- */
-    case 0x6A: cpu->A = ror(cpu, cpu->A);          break;
-    case 0x66: RMW(ror, addrZeroPage);             break;
-    case 0x76: RMW(ror, addrZeroPageX);            break;
-    case 0x6E: RMW(ror, addrAbsolute);             break;
-    case 0x7E: RMW(ror, addrAbsoluteX);            break;
+            if (cpu->A == 0)
+                cpu->P |= ZF;
+            else
+                cpu->P &= ~ZF;
 
-    /* ---------------- RTI / RTS ---------------- */
-    case 0x40: rti(cpu);                           break;
-    case 0x60: rts(cpu);                           break;
+            if (cpu->A & 0x80)
+                cpu->P |= NF;
+            else
+                cpu->P &= ~NF;
+            break;
 
-    /* ---------------- SBC ---------------- */
-    case 0xE9: sbc(cpu, fetch8(cpu));              break;
-    case 0xE5: sbc(cpu, READ(addrZeroPage));       break;
-    case 0xF5: sbc(cpu, READ(addrZeroPageX));      break;
-    case 0xED: sbc(cpu, READ(addrAbsolute));       break;
-    case 0xFD: sbc(cpu, READ(addrAbsoluteX));      break;
-    case 0xF9: sbc(cpu, READ(addrAbsoluteY));      break;
-    case 0xE1: sbc(cpu, READ(addrIndirectX));      break;
-    case 0xF1: sbc(cpu, READ(addrIndirectY));      break;
+        case 0xA5:
+            addr = addrZeroPage(cpu);
+            lda(cpu, addr);
+            break;
 
-    /* ---------------- STA ---------------- */
-    case 0x85: sta(cpu, addrZeroPage(cpu));        break;
-    case 0x95: sta(cpu, addrZeroPageX(cpu));       break;
-    case 0x8D: sta(cpu, addrAbsolute(cpu));        break;
-    case 0x9D: sta(cpu, addrAbsoluteX(cpu));       break;
-    case 0x99: sta(cpu, addrAbsoluteY(cpu));       break;
-    case 0x81: sta(cpu, addrIndirectX(cpu));       break;
-    case 0x91: sta(cpu, addrIndirectY(cpu));       break;
+        case 0xB5:
+            addr = addrZeroPageX(cpu);
+            lda(cpu, addr);
+            break;
 
-    /* ---------------- STX / STY ---------------- */
-    case 0x86: stx(cpu, addrZeroPage(cpu));        break;
-    case 0x96: stx(cpu, addrZeroPageY(cpu));       break;
-    case 0x8E: stx(cpu, addrAbsolute(cpu));        break;
-    case 0x84: sty(cpu, addrZeroPage(cpu));        break;
-    case 0x94: sty(cpu, addrZeroPageX(cpu));       break;
-    case 0x8C: sty(cpu, addrAbsolute(cpu));        break;
+        case 0xAD:
+            addr = addrAbsolute(cpu);
+            lda(cpu, addr);
+            break;
 
-    /* ---------------- Transfers ---------------- */
-    case 0xAA: tax(cpu);                           break;
-    case 0xA8: tay(cpu);                           break;
-    case 0xBA: tsx(cpu);                           break;
-    case 0x8A: txa(cpu);                           break;
-    case 0x9A: txs(cpu);                           break;
-    case 0x98: tya(cpu);                           break;
+        case 0xBD:
+            addr = addrAbsoluteX(cpu);
+            lda(cpu, addr);
+            break;
 
-    default:
-        printf("Invalid opcode: 0x%02X at 0x%04X\n", opcode, (uint16_t)(cpu->pc - 1));
-        break;
+        case 0xB9:
+            addr = addrAbsoluteY(cpu);
+            lda(cpu, addr);
+            break;
+
+        case 0xA1:
+            addr = addrIndirectX(cpu);
+            lda(cpu, addr);
+            break;
+
+        case 0xB1:
+            addr = addrIndirectY(cpu);
+            lda(cpu, addr);
+            break;
+
+
+        // ---------------- STA ----------------
+
+        case 0x85:
+            addr = addrZeroPage(cpu);
+            sta(cpu, addr);
+            break;
+
+        case 0x95:
+            addr = addrZeroPageX(cpu);
+            sta(cpu, addr);
+            break;
+
+        case 0x8D:
+            addr = addrAbsolute(cpu);
+            sta(cpu, addr);
+            break;
+
+        case 0x9D:
+            addr = addrAbsoluteX(cpu);
+            sta(cpu, addr);
+            break;
+
+        case 0x99:
+            addr = addrAbsoluteY(cpu);
+            sta(cpu, addr);
+            break;
+
+        case 0x81:
+            addr = addrIndirectX(cpu);
+            sta(cpu, addr);
+            break;
+
+        case 0x91:
+            addr = addrIndirectY(cpu);
+            sta(cpu, addr);
+            break;
+
+
+        // ---------------- FLAGS ----------------
+
+        case 0x18:
+            clc(cpu);
+            break;
+
+        case 0x38:
+            sec(cpu);
+            break;
+
+        case 0x58:
+            cli(cpu);
+            break;
+
+        case 0x78:
+            sei(cpu);
+            break;
+
+        case 0xB8:
+            clv(cpu);
+            break;
+
+        case 0xD8:
+            cld(cpu);
+            break;
+
+        case 0xF8:
+            sed(cpu);
+            break;
+
+
+        // ---------------- TRANSFERS ----------------
+
+        case 0xAA:
+            tax(cpu);
+            break;
+
+        case 0xA8:
+            tay(cpu);
+            break;
+
+        case 0x8A:
+            txa(cpu);
+            break;
+
+        case 0x98:
+            tya(cpu);
+            break;
+
+        case 0xBA:
+            tsx(cpu);
+            break;
+
+        case 0x9A:
+            txs(cpu);
+            break;
+
+
+        // ---------------- INCREMENT / DECREMENT ----------------
+
+        case 0xE8:
+            inx(cpu);
+            break;
+
+        case 0xC8:
+            iny(cpu);
+            break;
+
+        case 0xCA:
+            dex(cpu);
+            break;
+
+        case 0x88:
+            dey(cpu);
+            break;
+
+
+        // ---------------- STACK ----------------
+
+        case 0x48:
+            pha(cpu);
+            break;
+
+        case 0x08:
+            php(cpu);
+            break;
+
+        case 0x68:
+            pla(cpu);
+            break;
+
+        case 0x28:
+            plp(cpu);
+            break;
+
+
+        // ---------------- JUMPS / SUBROUTINES ----------------
+
+        case 0x4C:
+            jmp(cpu, fetch16(cpu));
+            break;
+
+        case 0x20:
+            jsr(cpu);
+            break;
+
+        case 0x60:
+            rts(cpu);
+            break;
+
+        case 0x40:
+            rti(cpu);
+            break;
+
+
+        // ---------------- BRANCHES ----------------
+
+        case 0x90:
+            bcc(cpu, fetch8(cpu));
+            break;
+
+        case 0xB0:
+            bcs(cpu, fetch8(cpu));
+            break;
+
+        case 0xF0:
+            beq(cpu, fetch8(cpu));
+            break;
+
+        case 0x30:
+            bmi(cpu, fetch8(cpu));
+            break;
+
+        case 0xD0:
+            bne(cpu, fetch8(cpu));
+            break;
+
+        case 0x10:
+            bpl(cpu, fetch8(cpu));
+            break;
+
+
+        // ---------------- OTHER ----------------
+
+        case 0x00:
+            brk(cpu);
+            break;
+
+        case 0xEA:
+            nop(cpu);
+            break;
+
+
+        default:
+            printf("ERROR: Unrecognized opcode: 0x%02X\n", opcode);
+            break;
     }
 }

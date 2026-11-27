@@ -12,7 +12,7 @@ typedef struct memory
     uint8_t RAM[MEMORY_SIZE];
 }memory;
 
-void initMemory(memory mem);
-void loadRom(char *path,memory mem);
+void initMemory(memory *mem);
+void loadRom(char *path,memory *mem);
 
 #endif
